@@ -25,12 +25,7 @@
             overflow-x: hidden;
         }
 
-        .header {
-            width: 100%; max-width: 480px;
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 15px;
-        }
-
+        .header { width: 100%; max-width: 480px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; color: var(--neon-blue); margin: 0; letter-spacing: 1px; }
 
         .glass-card {
@@ -68,10 +63,7 @@
         input:focus { border-color: var(--neon-blue); background: rgba(255, 255, 255, 0.12); }
         input[readonly] { color: #94a3b8; background: rgba(0,0,0,0.2); border-color: transparent; }
 
-        .scan-trigger {
-            background: #334155; border: none; border-radius: 10px;
-            padding: 0 15px; cursor: pointer; color: white; transition: 0.2s;
-        }
+        .scan-trigger { background: #334155; border: none; border-radius: 10px; padding: 0 15px; cursor: pointer; color: white; transition: 0.2s; }
         .scan-trigger:active { background: var(--neon-blue); }
 
         .submit-btn {
@@ -89,16 +81,12 @@
             border-radius: 15px; border: 1px solid var(--card-border);
         }
 
-        .history-table {
-            width: 100%; border-collapse: collapse; font-size: 0.65rem; min-width: 550px;
-        }
+        .history-table { width: 100%; border-collapse: collapse; font-size: 0.6rem; min-width: 650px; }
         .history-table th { padding: 12px 10px; text-align: left; color: #94a3b8; background: rgba(255,255,255,0.05); }
         .history-table td { padding: 10px; text-align: left; color: #e2e8f0; border-top: 1px solid var(--card-border); }
 
-        .status-bar { font-size: 0.8rem; text-align: center; margin-bottom: 12px; font-weight: 500; }
+        .status-bar { font-size: 0.8rem; text-align: center; margin-bottom: 12px; }
         .dot { height: 8px; width: 8px; background-color: var(--neon-green); border-radius: 50%; display: inline-block; margin-right: 6px; box-shadow: 0 0 8px var(--neon-green); }
-
-        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -106,7 +94,7 @@
     <div id="main-screen" style="width:100%;">
         <div class="header" style="margin: 0 auto 15px auto;">
             <h1>SMT TRACKER PRO</h1>
-            <div id="status" class="status-bar" style="margin-bottom:0;"><span class="dot"></span>System Active</div>
+            <div id="status" class="status-bar" style="margin-bottom:0;"><span class="dot"></span>Ready</div>
         </div>
 
         <div class="glass-card" style="margin: 0 auto;">
@@ -121,12 +109,13 @@
                     </div>
                 </div>
 
-                <div class="input-group span-2">
-                    <label>Process (Scan or Type OQC)</label>
-                    <div style="display:flex; gap:8px;">
-                        <input type="text" id="process-input" placeholder="OQC-..." style="background: rgba(255, 255, 255, 0.1);">
-                        <button class="scan-trigger" onclick="resumeScanner('process-input')">📷</button>
-                    </div>
+                <div class="input-group">
+                    <label>ID Card</label>
+                    <input type="text" id="id-card" placeholder="...">
+                </div>
+                <div class="input-group">
+                    <label>Process</label>
+                    <input type="text" id="process-input" placeholder="...">
                 </div>
 
                 <div class="input-group">
@@ -136,7 +125,6 @@
                         <option value="Confirm">Confirm</option>
                     </select>
                 </div>
-
                 <div class="input-group">
                     <label>Type</label>
                     <select id="io-type">
@@ -146,18 +134,17 @@
                 </div>
 
                 <div class="input-group span-2">
-                    <label>Model Name</label>
-                    <input type="text" id="model-name" readonly placeholder="Waiting for model scan...">
-                </div>
-
-                <div class="input-group">
-                    <label>Side</label>
-                    <input type="text" id="side-id" readonly>
+                    <label>Model Info</label>
+                    <input type="text" id="model-name" readonly>
                 </div>
 
                 <div class="input-group">
                     <label>Location</label>
                     <input type="text" id="location-id" readonly>
+                </div>
+                <div class="input-group">
+                    <label>Side</label>
+                    <input type="text" id="side-id" readonly>
                 </div>
 
                 <div class="input-group span-2">
@@ -172,7 +159,7 @@
         <div class="history-container" style="margin: 20px auto;">
             <table class="history-table">
                 <thead>
-                    <tr><th>Box</th><th>Process</th><th>Action</th><th>I/O</th><th>Model</th><th>Qty</th></tr>
+                    <tr><th>Box</th><th>ID Card</th><th>Proc</th><th>Act</th><th>Model</th><th>Loc</th><th>Side</th><th>Qty</th></tr>
                 </thead>
                 <tbody id="history-body"></tbody>
             </table>
@@ -181,15 +168,10 @@
 
     <script>
         const SCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; 
-
-        let localHistory = JSON.parse(localStorage.getItem('smt_hist_v6')) || [];
+        let localHistory = JSON.parse(localStorage.getItem('smt_hist_v7')) || [];
         let lastTarget = null;
         
-        const mainScanner = new Html5QrcodeScanner("reader", { 
-            fps: 20, 
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1.0
-        });
+        const mainScanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 250 });
 
         window.onload = function() {
             updateTableUI();
@@ -200,79 +182,76 @@
             mainScanner.pause(true); 
             const p = text.split(',');
             
-            // 1. AUTO-DETECT PROCESS (OQC)
-            if (text.toUpperCase().includes("OQC")) {
-                document.getElementById('process-input').value = text.trim();
-                msg("✔ PROCESS DETECTED", "#39ff14");
-                mainScanner.resume();
+            // Format check: Gill Main,19SF15A,A,1C754,OQC (5 parts)
+            if (p.length === 5) {
+                document.getElementById('model-name').value = p[0].trim();   // Gill Main
+                document.getElementById('location-id').value = p[1].trim(); // 19SF15A
+                document.getElementById('side-id').value = p[2].trim();     // A
+                document.getElementById('id-card').value = p[3].trim();     // 1C754
+                document.getElementById('process-input').value = p[4].trim(); // OQC
+                
+                document.getElementById('qty-input').focus();
+                msg("✔ ALL DATA SYNCED", "#00d2ff");
             } 
-            // 2. AUTO-DETECT BOX NO (PCBA-)
             else if (text.toUpperCase().includes("PCBA-")) {
                 document.getElementById('box-no').value = text.trim();
                 msg("✔ BOX DETECTED", "#39ff14");
                 mainScanner.resume();
             } 
-            // 3. MODEL DATA (COMMA SEPARATED)
-            else if (p.length >= 3) {
-                document.getElementById('model-name').value = p[0].trim();
-                document.getElementById('side-id').value = p[1].trim();
-                document.getElementById('location-id').value = p[2].trim();
-                document.getElementById('qty-input').focus();
-                msg("✔ MODEL SYNCED", "#00d2ff");
-            } 
-            // 4. MANUAL TARGETED SCAN
             else if (lastTarget) {
                 document.getElementById(lastTarget).value = text.trim();
-                msg("✔ FIELD UPDATED", "#00d2ff");
+                msg("✔ UPDATED", "#00d2ff");
             } 
             else {
-                msg("⚠ UNKNOWN FORMAT", "orange");
+                msg("⚠ UNKNOWN DATA", "orange");
                 mainScanner.resume();
             }
         }
 
         function resumeScanner(targetId) {
             lastTarget = targetId;
-            msg("SCANNER READY...", "#00d2ff");
+            msg("AWAITING SCAN...", "#00d2ff");
             mainScanner.resume();
         }
 
         function submitData() {
-            const box = document.getElementById('box-no').value;
-            const process = document.getElementById('process-input').value;
-            const action = document.getElementById('action-type').value;
-            const type = document.getElementById('io-type').value;
-            const model = document.getElementById('model-name').value;
-            const side = document.getElementById('side-id').value;
-            const loc = document.getElementById('location-id').value;
-            const qty = document.getElementById('qty-input').value;
+            const data = {
+                box: document.getElementById('box-no').value,
+                idCard: document.getElementById('id-card').value,
+                process: document.getElementById('process-input').value,
+                action: document.getElementById('action-type').value,
+                type: document.getElementById('io-type').value,
+                model: document.getElementById('model-name').value,
+                location: document.getElementById('location-id').value,
+                side: document.getElementById('side-id').value,
+                qty: document.getElementById('qty-input').value
+            };
 
-            if (!model || !qty) return alert("Please ensure Model and Qty are filled!");
+            if (!data.model || !data.qty) return alert("Missing Model or Qty!");
 
-            msg("TRANSMITTING...", "#00d2ff");
+            msg("SENDING...", "#00d2ff");
             document.getElementById('submit-btn').disabled = true;
 
-            // Save to local history
-            localHistory.unshift({ box, process, action, type, model, qty });
-            localStorage.setItem('smt_hist_v6', JSON.stringify(localHistory.slice(0, 10)));
+            localHistory.unshift(data);
+            localStorage.setItem('smt_hist_v7', JSON.stringify(localHistory.slice(0, 10)));
             updateTableUI();
 
             fetch(SCRIPT_URL, {
                 method: "POST", mode: "no-cors",
-                body: JSON.stringify({ box, process, action, type, model, side, loc, qty })
+                body: JSON.stringify(data)
             })
             .then(() => {
-                msg("✔ DATA SAVED", "#39ff14");
-                resetForm(); // Process remains
+                msg("✔ SAVED", "#39ff14");
+                clearFields();
                 mainScanner.resume(); 
             })
-            .catch(() => msg("❌ UPLOAD ERROR", "#ef4444"))
+            .catch(() => msg("❌ ERROR", "#ef4444"))
             .finally(() => document.getElementById('submit-btn').disabled = false);
         }
 
-        function resetForm() {
-            // Clears everything EXCEPT Process
-            ['model-name','side-id','location-id','box-no','qty-input'].forEach(id => {
+        function clearFields() {
+            // Keep ID Card and Process for next scan, clear others
+            ['model-name','location-id','side-id','box-no','qty-input'].forEach(id => {
                 document.getElementById(id).value = "";
             });
             lastTarget = null;
@@ -283,10 +262,12 @@
             body.innerHTML = localHistory.slice(0, 10).map(h => `
                 <tr>
                     <td style="color:#94a3b8">${h.box || '-'}</td>
-                    <td>${h.process || '-'}</td>
+                    <td>${h.idCard}</td>
+                    <td>${h.process}</td>
                     <td>${h.action}</td>
-                    <td>${h.type}</td>
                     <td>${h.model}</td>
+                    <td>${h.location}</td>
+                    <td>${h.side}</td>
                     <td style="color:var(--neon-blue); font-weight:bold;">${h.qty}</td>
                 </tr>
             `).join('');
@@ -294,7 +275,7 @@
 
         function msg(t, c) {
             const s = document.getElementById('status');
-            s.innerHTML = `<span class="dot" style="background:${c}; box-shadow: 0 0 8px ${c}"></span>${t}`;
+            s.innerHTML = `<span class="dot" style="background:${c}"></span>${t}`;
             s.style.color = c;
         }
     </script>
