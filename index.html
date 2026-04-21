@@ -102,9 +102,9 @@
 
             <div class="grid">
                 <div class="input-group span-2">
-                    <label>Box No.</label>
+                    <label>Box No. (Any Scan)</label>
                     <div style="display:flex; gap:8px;">
-                        <input type="text" id="box-no" placeholder="Scan PCBA-...">
+                        <input type="text" id="box-no" placeholder="Scan any QR...">
                         <button class="scan-trigger" onclick="resumeScanner('box-no')">📷</button>
                     </div>
                 </div>
@@ -168,7 +168,7 @@
 
     <script>
         const SCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; 
-        let localHistory = JSON.parse(localStorage.getItem('smt_hist_v7')) || [];
+        let localHistory = JSON.parse(localStorage.getItem('smt_hist_v8')) || [];
         let lastTarget = null;
         
         const mainScanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 250 });
@@ -184,18 +184,20 @@
             
             // Format check: Gill Main,19SF15A,A,1C754,OQC (5 parts)
             if (p.length === 5) {
-                document.getElementById('model-name').value = p[0].trim();   // Gill Main
-                document.getElementById('location-id').value = p[1].trim(); // 19SF15A
-                document.getElementById('side-id').value = p[2].trim();     // A
-                document.getElementById('id-card').value = p[3].trim();     // 1C754
-                document.getElementById('process-input').value = p[4].trim(); // OQC
+                document.getElementById('model-name').value = p[0].trim();
+                document.getElementById('location-id').value = p[1].trim();
+                document.getElementById('side-id').value = p[2].trim();
+                document.getElementById('id-card').value = p[3].trim();
+                document.getElementById('process-input').value = p[4].trim();
                 
                 document.getElementById('qty-input').focus();
-                msg("✔ ALL DATA SYNCED", "#00d2ff");
+                msg("✔ MODEL SYNCED", "#00d2ff");
             } 
-            else if (text.toUpperCase().includes("PCBA-")) {
+            // NO CONTROL KEYWORD - Just input into Box No if it's the current target
+            // OR if it's an unknown scan and we aren't targeting anything
+            else if (lastTarget === 'box-no' || !lastTarget) {
                 document.getElementById('box-no').value = text.trim();
-                msg("✔ BOX DETECTED", "#39ff14");
+                msg("✔ BOX NO UPDATED", "#39ff14");
                 mainScanner.resume();
             } 
             else if (lastTarget) {
@@ -233,7 +235,7 @@
             document.getElementById('submit-btn').disabled = true;
 
             localHistory.unshift(data);
-            localStorage.setItem('smt_hist_v7', JSON.stringify(localHistory.slice(0, 10)));
+            localStorage.setItem('smt_hist_v8', JSON.stringify(localHistory.slice(0, 10)));
             updateTableUI();
 
             fetch(SCRIPT_URL, {
@@ -250,7 +252,7 @@
         }
 
         function clearFields() {
-            // Keep ID Card and Process for next scan, clear others
+            // Keep ID Card and Process, clear others
             ['model-name','location-id','side-id','box-no','qty-input'].forEach(id => {
                 document.getElementById(id).value = "";
             });
