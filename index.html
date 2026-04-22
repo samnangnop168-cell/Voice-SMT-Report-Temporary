@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SMT TRACKER PRO</title>
+    <title>SMT TRACKER PRO | AUTO-FLOW</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;500;700&display=swap" rel="stylesheet">
     <style>
@@ -41,7 +41,7 @@
 
         #reader {
             width: 100% !important; border-radius: 12px; overflow: hidden;
-            border: 1px solid var(--card-border);
+            border: 2px solid var(--card-border);
             margin-bottom: 15px; background: #000;
         }
 
@@ -60,11 +60,11 @@
             outline: none;
         }
         
-        input:focus { border-color: var(--neon-blue); background: rgba(255, 255, 255, 0.12); }
+        input:focus { border-color: var(--neon-blue); background: rgba(255, 255, 255, 0.12); box-shadow: 0 0 10px rgba(0, 210, 255, 0.2); }
         input[readonly] { color: #94a3b8; background: rgba(0,0,0,0.2); border-color: transparent; }
 
-        .scan-trigger { background: #334155; border: none; border-radius: 10px; padding: 0 15px; cursor: pointer; color: white; transition: 0.2s; }
-        .scan-trigger:active { background: var(--neon-blue); }
+        .scan-trigger { background: #334155; border: none; border-radius: 10px; padding: 0 15px; cursor: pointer; color: white; }
+        .active-scan { border: 2px solid var(--neon-blue); background: rgba(0, 210, 255, 0.1); }
 
         .submit-btn {
             background: linear-gradient(135deg, #2563eb, #00d2ff);
@@ -85,7 +85,7 @@
         .history-table th { padding: 12px 10px; text-align: left; color: #94a3b8; background: rgba(255,255,255,0.05); }
         .history-table td { padding: 10px; text-align: left; color: #e2e8f0; border-top: 1px solid var(--card-border); }
 
-        .status-bar { font-size: 0.8rem; text-align: center; margin-bottom: 12px; }
+        .status-bar { font-size: 0.8rem; text-align: center; margin-bottom: 12px; font-weight: bold; }
         .dot { height: 8px; width: 8px; background-color: var(--neon-green); border-radius: 50%; display: inline-block; margin-right: 6px; box-shadow: 0 0 8px var(--neon-green); }
     </style>
 </head>
@@ -94,7 +94,7 @@
     <div id="main-screen" style="width:100%;">
         <div class="header" style="margin: 0 auto 15px auto;">
             <h1>SMT TRACKER PRO</h1>
-            <div id="status" class="status-bar" style="margin-bottom:0;"><span class="dot"></span>Ready</div>
+            <div id="status" class="status-bar" style="margin-bottom:0;"><span class="dot"></span>SYSTEM READY</div>
         </div>
 
         <div class="glass-card" style="margin: 0 auto;">
@@ -102,20 +102,20 @@
 
             <div class="grid">
                 <div class="input-group span-2">
-                    <label>Box No. (Any Scan)</label>
+                    <label id="lbl-box">1. Scan Box No.</label>
                     <div style="display:flex; gap:8px;">
-                        <input type="text" id="box-no" placeholder="Scan any QR...">
-                        <button class="scan-trigger" onclick="resumeScanner('box-no')">📷</button>
+                        <input type="text" id="box-no" placeholder="Waiting for Box QR..." class="active-scan">
+                        <button class="scan-trigger" onclick="setTarget('box-no')">📷</button>
                     </div>
                 </div>
 
                 <div class="input-group">
                     <label>ID Card</label>
-                    <input type="text" id="id-card" placeholder="...">
+                    <input type="text" id="id-card" readonly>
                 </div>
                 <div class="input-group">
                     <label>Process</label>
-                    <input type="text" id="process-input" placeholder="...">
+                    <input type="text" id="process-input" readonly>
                 </div>
 
                 <div class="input-group">
@@ -134,8 +134,8 @@
                 </div>
 
                 <div class="input-group span-2">
-                    <label>Model Info</label>
-                    <input type="text" id="model-name" readonly>
+                    <label id="lbl-model">2. Scan Model/Process QR</label>
+                    <input type="text" id="model-name" readonly placeholder="Waiting for 5-part QR...">
                 </div>
 
                 <div class="input-group">
@@ -148,7 +148,7 @@
                 </div>
 
                 <div class="input-group span-2">
-                    <label style="color:var(--neon-blue)">Quantity</label>
+                    <label style="color:var(--neon-blue)">3. Input Quantity</label>
                     <input type="number" id="qty-input" placeholder="0" style="font-size: 1.2rem; font-weight: bold; border-color: var(--neon-blue);">
                 </div>
             </div>
@@ -168,10 +168,10 @@
 
     <script>
         const SCRIPT_URL = "YOUR_WEB_APP_URL_HERE"; 
-        let localHistory = JSON.parse(localStorage.getItem('smt_hist_v8')) || [];
-        let lastTarget = null;
+        let localHistory = JSON.parse(localStorage.getItem('smt_hist_v9')) || [];
+        let currentStep = 'box-no'; // Initial state
         
-        const mainScanner = new Html5QrcodeScanner("reader", { fps: 20, qrbox: 250 });
+        const mainScanner = new Html5QrcodeScanner("reader", { fps: 25, qrbox: 250 });
 
         window.onload = function() {
             updateTableUI();
@@ -182,7 +182,7 @@
             mainScanner.pause(true); 
             const p = text.split(',');
             
-            // Format check: Gill Main,19SF15A,A,1C754,OQC (5 parts)
+            // LOGIC: If it's a 5-part QR, fill model info regardless of current step
             if (p.length === 5) {
                 document.getElementById('model-name').value = p[0].trim();
                 document.getElementById('location-id').value = p[1].trim();
@@ -190,30 +190,40 @@
                 document.getElementById('id-card').value = p[3].trim();
                 document.getElementById('process-input').value = p[4].trim();
                 
-                document.getElementById('qty-input').focus();
                 msg("✔ MODEL SYNCED", "#00d2ff");
+                document.getElementById('qty-input').focus();
+                setTarget('qty'); // Finished scanning steps
             } 
-            // NO CONTROL KEYWORD - Just input into Box No if it's the current target
-            // OR if it's an unknown scan and we aren't targeting anything
-            else if (lastTarget === 'box-no' || !lastTarget) {
+            // LOGIC: If it's the first step (Box No)
+            else if (currentStep === 'box-no') {
                 document.getElementById('box-no').value = text.trim();
-                msg("✔ BOX NO UPDATED", "#39ff14");
-                mainScanner.resume();
-            } 
-            else if (lastTarget) {
-                document.getElementById(lastTarget).value = text.trim();
-                msg("✔ UPDATED", "#00d2ff");
+                msg("✔ BOX SCANNED - NOW SCAN MODEL", "#39ff14");
+                
+                // AUTO-TRANSITION TO MODEL SCAN
+                setTimeout(() => {
+                    setTarget('model');
+                    mainScanner.resume();
+                }, 500); 
             } 
             else {
-                msg("⚠ UNKNOWN DATA", "orange");
+                msg("⚠ INVALID FORMAT", "orange");
                 mainScanner.resume();
             }
         }
 
-        function resumeScanner(targetId) {
-            lastTarget = targetId;
-            msg("AWAITING SCAN...", "#00d2ff");
-            mainScanner.resume();
+        function setTarget(step) {
+            currentStep = step;
+            // Visual feedback on which field is being filled
+            document.getElementById('box-no').classList.remove('active-scan');
+            document.getElementById('model-name').classList.remove('active-scan');
+
+            if (step === 'box-no') {
+                document.getElementById('box-no').classList.add('active-scan');
+                msg("AWAITING BOX NO...", "#39ff14");
+            } else if (step === 'model') {
+                document.getElementById('model-name').classList.add('active-scan');
+                msg("AWAITING MODEL QR...", "#00d2ff");
+            }
         }
 
         function submitData() {
@@ -229,13 +239,13 @@
                 qty: document.getElementById('qty-input').value
             };
 
-            if (!data.model || !data.qty) return alert("Missing Model or Qty!");
+            if (!data.box || !data.model || !data.qty) return alert("Missing Data! Please scan Box, Model and enter Qty.");
 
-            msg("SENDING...", "#00d2ff");
+            msg("TRANSMITTING...", "#00d2ff");
             document.getElementById('submit-btn').disabled = true;
 
             localHistory.unshift(data);
-            localStorage.setItem('smt_hist_v8', JSON.stringify(localHistory.slice(0, 10)));
+            localStorage.setItem('smt_hist_v9', JSON.stringify(localHistory.slice(0, 10)));
             updateTableUI();
 
             fetch(SCRIPT_URL, {
@@ -243,27 +253,26 @@
                 body: JSON.stringify(data)
             })
             .then(() => {
-                msg("✔ SAVED", "#39ff14");
-                clearFields();
+                msg("✔ RECORD SAVED", "#39ff14");
+                clearForm();
                 mainScanner.resume(); 
             })
             .catch(() => msg("❌ ERROR", "#ef4444"))
             .finally(() => document.getElementById('submit-btn').disabled = false);
         }
 
-        function clearFields() {
-            // Keep ID Card and Process, clear others
-            ['model-name','location-id','side-id','box-no','qty-input'].forEach(id => {
+        function clearForm() {
+            ['model-name','location-id','side-id','box-no','qty-input','id-card','process-input'].forEach(id => {
                 document.getElementById(id).value = "";
             });
-            lastTarget = null;
+            setTarget('box-no'); // Reset workflow back to step 1
         }
 
         function updateTableUI() {
             const body = document.getElementById('history-body');
             body.innerHTML = localHistory.slice(0, 10).map(h => `
                 <tr>
-                    <td style="color:#94a3b8">${h.box || '-'}</td>
+                    <td>${h.box}</td>
                     <td>${h.idCard}</td>
                     <td>${h.process}</td>
                     <td>${h.action}</td>
